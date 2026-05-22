@@ -14,6 +14,7 @@ import {
   Bell,
   Building2,
   GraduationCap,
+  FileText,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -55,6 +56,7 @@ export default function Sidebar() {
     },
     { href: '/departments', label: 'Departments', icon: Building2 },
     { href: '/qualifications', label: 'Qualifications', icon: GraduationCap },
+    { href: '/content', label: 'Content', icon: FileText },
     { href: '/patients', label: 'Patients', icon: Users },
     { href: '/doctors', label: 'Doctors', icon: Stethoscope },
     { href: '/payments', label: 'Payments', icon: CreditCard },

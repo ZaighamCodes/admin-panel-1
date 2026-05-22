@@ -32,7 +32,7 @@ export default function Table({ columns, data, className = '' }) {
               data.map((row, rowIndex) => {
                 if (!row) return null;
                 return (
-                  <tr key={row.id || row.doctorId || row.departmentId || row.qualificationId || rowIndex} className="hover:bg-primary-50/50 transition-colors">
+                  <tr key={row.id || row.articleId || row.advertisementId || row.doctorId || row.departmentId || row.qualificationId || rowIndex} className="hover:bg-primary-50/50 transition-colors">
                     {columns.map((column, index) => {
                       try {
                         return (

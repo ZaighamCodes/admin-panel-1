@@ -10,6 +10,7 @@ import qualificationsReducer from './slices/qualificationsSlice';
 import doctorVerificationReducer from './slices/doctorVerificationSlice';
 import verifiedDoctorsReducer from './slices/verifiedDoctorsSlice';
 import rejectedApplicationsReducer from './slices/rejectedApplicationsSlice';
+import contentReducer from './slices/contentSlice';
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +25,7 @@ export const store = configureStore({
     doctorVerification: doctorVerificationReducer,
     verifiedDoctors: verifiedDoctorsReducer,
     rejectedApplications: rejectedApplicationsReducer,
+    content: contentReducer,
   },
 });
 

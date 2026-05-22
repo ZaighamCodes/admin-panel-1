@@ -1,6 +1,6 @@
 import api from './api';
 
-const CONTENT_PREFIX = '/content';
+const CONTENT_PREFIX = '/api/v1/content';
 
 const buildMultipartBody = (data, imageFile) => {
   const formData = new FormData();
@@ -14,14 +14,15 @@ const buildMultipartBody = (data, imageFile) => {
   return formData;
 };
 
-// ——— Advertisements ———
+const unwrapData = (response) => response.data?.data ?? response.data;
 
-export const getAdvertisements = async (audience, limit = 20) => {
-  const query = new URLSearchParams({
-    audience,
-    limit: String(Math.min(Math.max(limit, 1), 20)),
+// ——— Advertisements (admin) ———
+
+/** Admin list — all ads including inactive (uncached) */
+export const getAdvertisementsManage = async (audience) => {
+  return api.get(`${CONTENT_PREFIX}/advertisements/manage`, {
+    params: { audience },
   });
-  return api.get(`${CONTENT_PREFIX}/advertisements?${query.toString()}`);
 };
 
 export const createAdvertisement = async (data, imageFile) => {
@@ -38,29 +39,60 @@ export const deleteAdvertisement = async (advertisementId) => {
   return api.delete(`${CONTENT_PREFIX}/advertisements/${advertisementId}`);
 };
 
-// ——— Health Tips ———
+// ——— Health Tips (admin — text only, JSON body) ———
 
-export const getHealthTips = async (params = {}) => {
-  const { audience = 'PATIENT', page = 0, size = 20, category } = params;
-  const query = new URLSearchParams({
-    audience,
-    page: String(page),
-    size: String(Math.min(Math.max(size, 1), 50)),
+/** Admin list — all tips including inactive (uncached) */
+export const getHealthTipsManage = async (audience) => {
+  return api.get(`${CONTENT_PREFIX}/health-tips/manage`, {
+    params: { audience },
   });
-  if (category) query.set('category', category);
-  return api.get(`${CONTENT_PREFIX}/health-tips?${query.toString()}`);
 };
 
-export const createHealthTip = async (data, imageFile) => {
-  const formData = buildMultipartBody(data, imageFile);
-  return api.post(`${CONTENT_PREFIX}/health-tips`, formData);
+export const createHealthTip = async (data) => {
+  return api.post(`${CONTENT_PREFIX}/health-tips`, data);
 };
 
-export const updateHealthTip = async (tipId, data, imageFile) => {
-  const formData = buildMultipartBody(data, imageFile);
-  return api.put(`${CONTENT_PREFIX}/health-tips/${tipId}`, formData);
+export const updateHealthTip = async (tipId, data) => {
+  return api.put(`${CONTENT_PREFIX}/health-tips/${tipId}`, data);
 };
 
 export const deleteHealthTip = async (tipId) => {
   return api.delete(`${CONTENT_PREFIX}/health-tips/${tipId}`);
 };
+
+// ——— Health Articles ———
+
+export const getHealthArticles = async (params = {}) => {
+  const { page = 0, size = 20, category, featured, search } = params;
+  const query = { page: String(page), size: String(Math.min(Math.max(size, 1), 50)) };
+  if (category) query.category = category;
+  if (featured !== undefined && featured !== null && featured !== '') {
+    query.featured = String(featured);
+  }
+  if (search) query.search = search;
+  return api.get(`${CONTENT_PREFIX}/health-articles`, { params: query });
+};
+
+export const getHealthArticleCategories = async () => {
+  return api.get(`${CONTENT_PREFIX}/health-articles/categories`);
+};
+
+export const getHealthArticleById = async (articleId) => {
+  return api.get(`${CONTENT_PREFIX}/health-articles/${articleId}`);
+};
+
+export const createHealthArticle = async (data, imageFile) => {
+  const formData = buildMultipartBody(data, imageFile);
+  return api.post(`${CONTENT_PREFIX}/health-articles`, formData);
+};
+
+export const updateHealthArticle = async (articleId, data, imageFile) => {
+  const formData = buildMultipartBody(data, imageFile);
+  return api.put(`${CONTENT_PREFIX}/health-articles/${articleId}`, formData);
+};
+
+export const deleteHealthArticle = async (articleId) => {
+  return api.delete(`${CONTENT_PREFIX}/health-articles/${articleId}`);
+};
+
+export { unwrapData };

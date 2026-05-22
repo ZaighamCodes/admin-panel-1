@@ -4,7 +4,24 @@ import * as contentApi from '@/services/contentApi';
 const extractError = (error) =>
   error?.message || error?.data?.message || 'Something went wrong';
 
+const parseTipsManage = (response) => {
+  const data = contentApi.unwrapData(response);
+  return Array.isArray(data) ? data : [];
+};
+
 const initialState = {
+  healthTips: {
+    audience: 'PATIENT',
+    patient: { items: [], loading: false, error: null, fetched: false },
+    doctor: { items: [], loading: false, error: null, fetched: false },
+    saving: false,
+  },
+  advertisements: {
+    audience: 'PATIENT',
+    patient: { items: [], loading: false, error: null, fetched: false },
+    doctor: { items: [], loading: false, error: null, fetched: false },
+    saving: false,
+  },
   articles: {
     items: [],
     page: 0,
@@ -14,55 +31,107 @@ const initialState = {
     hasNext: false,
     loading: false,
     saving: false,
+    detailLoading: false,
     error: null,
-    filters: { search: '', category: '' },
     categories: [],
     categoriesLoading: false,
+    filters: { search: '', category: '', featured: '' },
     fetchKey: null,
-  },
-  advertisements: {
-    audience: 'PATIENT',
-    patient: { items: [], loading: false, error: null, fetched: false },
-    doctor: { items: [], loading: false, error: null, fetched: false },
-    saving: false,
-    detailLoading: false,
   },
 };
 
-// ——— Articles ———
+// ——— Health Tips ———
+
+export const fetchHealthTips = createAsyncThunk(
+  'content/fetchHealthTips',
+  async ({ audience, force = false }, { getState, rejectWithValue }) => {
+    try {
+      const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
+      const bucket = getState().content.healthTips[key];
+      if (bucket.fetched && !force && !bucket.loading) {
+        return { audience, cached: true };
+      }
+
+      const response = await contentApi.getHealthTipsManage(audience);
+      return { audience, items: parseTipsManage(response) };
+    } catch (error) {
+      return rejectWithValue(extractError(error));
+    }
+  }
+);
+
+export const createHealthTip = createAsyncThunk(
+  'content/createHealthTip',
+  async ({ data }, { rejectWithValue }) => {
+    try {
+      const response = await contentApi.createHealthTip(data);
+      return contentApi.unwrapData(response);
+    } catch (error) {
+      return rejectWithValue(extractError(error));
+    }
+  }
+);
+
+export const updateHealthTip = createAsyncThunk(
+  'content/updateHealthTip',
+  async ({ tipId, data }, { rejectWithValue }) => {
+    try {
+      const response = await contentApi.updateHealthTip(tipId, data);
+      return contentApi.unwrapData(response);
+    } catch (error) {
+      return rejectWithValue(extractError(error));
+    }
+  }
+);
+
+export const deleteHealthTip = createAsyncThunk(
+  'content/deleteHealthTip',
+  async (tipId, { rejectWithValue }) => {
+    try {
+      await contentApi.deleteHealthTip(tipId);
+      return tipId;
+    } catch (error) {
+      return rejectWithValue(extractError(error));
+    }
+  }
+);
+
+// ——— Health Articles ———
 
 export const fetchArticles = createAsyncThunk(
   'content/fetchArticles',
   async (params, { getState, rejectWithValue }) => {
     try {
-      const { page, size, search, category } = params || {};
       const state = getState().content.articles;
-      const resolvedPage = page ?? state.page;
-      const resolvedSize = size ?? state.size;
-      const resolvedSearch = search !== undefined ? search : state.filters.search;
-      const resolvedCategory = category !== undefined ? category : state.filters.category;
+      const page = params?.page ?? state.page;
+      const size = params?.size ?? state.size;
+      const search = params?.search !== undefined ? params.search : state.filters.search;
+      const category = params?.category !== undefined ? params.category : state.filters.category;
+      const featured =
+        params?.featured !== undefined ? params.featured : state.filters.featured;
 
-      const fetchKey = `${resolvedPage}|${resolvedSize}|${resolvedSearch}|${resolvedCategory}`;
+      const fetchKey = `${page}|${size}|${search}|${category}|${featured}`;
       if (state.fetchKey === fetchKey && state.items.length > 0 && !params?.force) {
         return { cached: true, fetchKey };
       }
 
       const response = await contentApi.getHealthArticles({
-        page: resolvedPage,
-        size: resolvedSize,
-        search: resolvedSearch || undefined,
-        category: resolvedCategory || undefined,
+        page,
+        size,
+        search: search || undefined,
+        category: category || undefined,
+        featured: featured === '' ? undefined : featured === 'true',
       });
-      const data = response.data?.data || response.data;
+      const data = contentApi.unwrapData(response);
       return {
         items: data.content || [],
-        page: data.page ?? resolvedPage,
-        size: data.size ?? resolvedSize,
+        page: data.page ?? page,
+        size: data.size ?? size,
         totalElements: data.totalElements ?? 0,
         totalPages: data.totalPages ?? 0,
         hasNext: data.hasNext ?? false,
         fetchKey,
-        filters: { search: resolvedSearch, category: resolvedCategory },
+        filters: { search, category, featured },
       };
     } catch (error) {
       return rejectWithValue(extractError(error));
@@ -77,7 +146,7 @@ export const fetchArticleCategories = createAsyncThunk(
     if (existing.length > 0) return existing;
     try {
       const response = await contentApi.getHealthArticleCategories();
-      const data = response.data?.data || response.data;
+      const data = contentApi.unwrapData(response);
       return data.categories || [];
     } catch (error) {
       return rejectWithValue(extractError(error));
@@ -90,7 +159,7 @@ export const fetchArticleById = createAsyncThunk(
   async (articleId, { rejectWithValue }) => {
     try {
       const response = await contentApi.getHealthArticleById(articleId);
-      return response.data?.data || response.data;
+      return contentApi.unwrapData(response);
     } catch (error) {
       return rejectWithValue(extractError(error));
     }
@@ -102,7 +171,7 @@ export const createArticle = createAsyncThunk(
   async ({ data, imageFile }, { rejectWithValue }) => {
     try {
       const response = await contentApi.createHealthArticle(data, imageFile);
-      return response.data?.data || response.data;
+      return contentApi.unwrapData(response);
     } catch (error) {
       return rejectWithValue(extractError(error));
     }
@@ -114,7 +183,7 @@ export const updateArticle = createAsyncThunk(
   async ({ articleId, data, imageFile }, { rejectWithValue }) => {
     try {
       const response = await contentApi.updateHealthArticle(articleId, data, imageFile);
-      return response.data?.data || response.data;
+      return contentApi.unwrapData(response);
     } catch (error) {
       return rejectWithValue(extractError(error));
     }
@@ -145,12 +214,9 @@ export const fetchAdvertisements = createAsyncThunk(
         return { audience, cached: true };
       }
 
-      const response = await contentApi.getAdvertisements(audience, 20);
-      const data = response.data?.data || response.data;
-      return {
-        audience,
-        items: data.items || [],
-      };
+      const response = await contentApi.getAdvertisementsManage(audience);
+      const data = contentApi.unwrapData(response);
+      return { audience, items: data?.items || [] };
     } catch (error) {
       return rejectWithValue({ audience, message: extractError(error) });
     }
@@ -162,7 +228,7 @@ export const createAdvertisement = createAsyncThunk(
   async ({ data, imageFile }, { rejectWithValue }) => {
     try {
       const response = await contentApi.createAdvertisement(data, imageFile);
-      return response.data?.data || response.data;
+      return contentApi.unwrapData(response);
     } catch (error) {
       return rejectWithValue(extractError(error));
     }
@@ -174,7 +240,7 @@ export const updateAdvertisement = createAsyncThunk(
   async ({ advertisementId, data, imageFile }, { rejectWithValue }) => {
     try {
       const response = await contentApi.updateAdvertisement(advertisementId, data, imageFile);
-      return response.data?.data || response.data;
+      return contentApi.unwrapData(response);
     } catch (error) {
       return rejectWithValue(extractError(error));
     }
@@ -197,6 +263,12 @@ const contentSlice = createSlice({
   name: 'content',
   initialState,
   reducers: {
+    setTipAudience: (state, action) => {
+      state.healthTips.audience = action.payload;
+    },
+    setAdAudience: (state, action) => {
+      state.advertisements.audience = action.payload;
+    },
     setArticleFilters: (state, action) => {
       state.articles.filters = { ...state.articles.filters, ...action.payload };
       state.articles.fetchKey = null;
@@ -205,11 +277,15 @@ const contentSlice = createSlice({
       state.articles.page = action.payload;
       state.articles.fetchKey = null;
     },
-    setAdAudience: (state, action) => {
-      state.advertisements.audience = action.payload;
-    },
     invalidateArticles: (state) => {
       state.articles.fetchKey = null;
+    },
+    invalidateTips: (state, action) => {
+      const audiences = action.payload || ['PATIENT', 'DOCTOR'];
+      audiences.forEach((aud) => {
+        const key = aud === 'DOCTOR' ? 'doctor' : 'patient';
+        state.healthTips[key].fetched = false;
+      });
     },
     invalidateAds: (state, action) => {
       const audiences = action.payload || ['PATIENT', 'DOCTOR'];
@@ -219,26 +295,145 @@ const contentSlice = createSlice({
       });
     },
     clearContentErrors: (state) => {
-      state.articles.error = null;
+      state.healthTips.patient.error = null;
+      state.healthTips.doctor.error = null;
       state.advertisements.patient.error = null;
       state.advertisements.doctor.error = null;
+      state.articles.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Articles list
-      .addCase(fetchArticles.pending, (state) => {
-        if (!state.articles.loading) {
-          state.articles.loading = true;
-          state.articles.error = null;
+      // Health tips list
+      .addCase(fetchHealthTips.pending, (state, action) => {
+        const audience = action.meta.arg?.audience || state.healthTips.audience;
+        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
+        state.healthTips[key].loading = true;
+        state.healthTips[key].error = null;
+      })
+      .addCase(fetchHealthTips.fulfilled, (state, action) => {
+        const { audience, items, cached } = action.payload;
+        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
+        state.healthTips[key].loading = false;
+        if (!cached) {
+          state.healthTips[key].items = items;
+          state.healthTips[key].fetched = true;
         }
       })
-      .addCase(fetchArticles.fulfilled, (state, action) => {
-        if (action.payload.cached) {
-          state.articles.loading = false;
-          return;
+      .addCase(fetchHealthTips.rejected, (state, action) => {
+        const audience = action.meta.arg?.audience || state.healthTips.audience;
+        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
+        state.healthTips[key].loading = false;
+        state.healthTips[key].error = action.payload;
+      })
+      .addCase(createHealthTip.pending, (state) => {
+        state.healthTips.saving = true;
+      })
+      .addCase(createHealthTip.fulfilled, (state, action) => {
+        state.healthTips.saving = false;
+        const aud = action.meta?.arg?.data?.audience;
+        const key = aud === 'DOCTOR' ? 'doctor' : 'patient';
+        state.healthTips[key].fetched = false;
+      })
+      .addCase(createHealthTip.rejected, (state) => {
+        state.healthTips.saving = false;
+      })
+      .addCase(updateHealthTip.pending, (state) => {
+        state.healthTips.saving = true;
+      })
+      .addCase(updateHealthTip.fulfilled, (state) => {
+        state.healthTips.saving = false;
+        ['patient', 'doctor'].forEach((key) => {
+          state.healthTips[key].fetched = false;
+        });
+      })
+      .addCase(updateHealthTip.rejected, (state) => {
+        state.healthTips.saving = false;
+      })
+      .addCase(deleteHealthTip.pending, (state) => {
+        state.healthTips.saving = true;
+      })
+      .addCase(deleteHealthTip.fulfilled, (state, action) => {
+        state.healthTips.saving = false;
+        ['patient', 'doctor'].forEach((key) => {
+          state.healthTips[key].items = state.healthTips[key].items.filter(
+            (t) => t.tipId !== action.payload
+          );
+          state.healthTips[key].fetched = false;
+        });
+      })
+      .addCase(deleteHealthTip.rejected, (state) => {
+        state.healthTips.saving = false;
+      })
+      // Ads list
+      .addCase(fetchAdvertisements.pending, (state, action) => {
+        const audience = action.meta.arg?.audience || state.advertisements.audience;
+        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
+        state.advertisements[key].loading = true;
+        state.advertisements[key].error = null;
+      })
+      .addCase(fetchAdvertisements.fulfilled, (state, action) => {
+        const { audience, items, cached } = action.payload;
+        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
+        state.advertisements[key].loading = false;
+        if (!cached) {
+          state.advertisements[key].items = items;
+          state.advertisements[key].fetched = true;
         }
+      })
+      .addCase(fetchAdvertisements.rejected, (state, action) => {
+        const audience = action.payload?.audience || state.advertisements.audience;
+        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
+        state.advertisements[key].loading = false;
+        state.advertisements[key].error = action.payload?.message || 'Failed to load ads';
+      })
+      .addCase(createAdvertisement.pending, (state) => {
+        state.advertisements.saving = true;
+      })
+      .addCase(createAdvertisement.fulfilled, (state, action) => {
+        state.advertisements.saving = false;
+        const aud = action.payload?.audience || action.meta?.arg?.data?.audience;
+        const key = aud === 'DOCTOR' ? 'doctor' : 'patient';
+        state.advertisements[key].fetched = false;
+      })
+      .addCase(createAdvertisement.rejected, (state) => {
+        state.advertisements.saving = false;
+      })
+      .addCase(updateAdvertisement.pending, (state) => {
+        state.advertisements.saving = true;
+      })
+      .addCase(updateAdvertisement.fulfilled, (state, action) => {
+        state.advertisements.saving = false;
+        const aud = action.payload?.audience;
+        const key = aud === 'DOCTOR' ? 'doctor' : 'patient';
+        state.advertisements[key].fetched = false;
+      })
+      .addCase(updateAdvertisement.rejected, (state) => {
+        state.advertisements.saving = false;
+      })
+      .addCase(deleteAdvertisement.pending, (state) => {
+        state.advertisements.saving = true;
+      })
+      .addCase(deleteAdvertisement.fulfilled, (state, action) => {
+        state.advertisements.saving = false;
+        ['patient', 'doctor'].forEach((key) => {
+          state.advertisements[key].items = state.advertisements[key].items.filter(
+            (ad) => ad.advertisementId !== action.payload
+          );
+          state.advertisements[key].fetched = false;
+        });
+      })
+      .addCase(deleteAdvertisement.rejected, (state) => {
+        state.advertisements.saving = false;
+      })
+      // Articles list
+      .addCase(fetchArticles.pending, (state) => {
+        state.articles.loading = true;
+        state.articles.error = null;
+      })
+      .addCase(fetchArticles.fulfilled, (state, action) => {
         state.articles.loading = false;
+        if (action.payload.cached) return;
         state.articles.items = action.payload.items;
         state.articles.page = action.payload.page;
         state.articles.size = action.payload.size;
@@ -254,7 +449,6 @@ const contentSlice = createSlice({
         state.articles.loading = false;
         state.articles.error = action.payload;
       })
-      // Categories
       .addCase(fetchArticleCategories.pending, (state) => {
         state.articles.categoriesLoading = true;
       })
@@ -265,7 +459,15 @@ const contentSlice = createSlice({
       .addCase(fetchArticleCategories.rejected, (state) => {
         state.articles.categoriesLoading = false;
       })
-      // Article mutations
+      .addCase(fetchArticleById.pending, (state) => {
+        state.articles.detailLoading = true;
+      })
+      .addCase(fetchArticleById.fulfilled, (state) => {
+        state.articles.detailLoading = false;
+      })
+      .addCase(fetchArticleById.rejected, (state) => {
+        state.articles.detailLoading = false;
+      })
       .addCase(createArticle.pending, (state) => {
         state.articles.saving = true;
       })
@@ -299,79 +501,17 @@ const contentSlice = createSlice({
       })
       .addCase(deleteArticle.rejected, (state) => {
         state.articles.saving = false;
-      })
-      // Ads list
-      .addCase(fetchAdvertisements.pending, (state, action) => {
-        const audience = action.meta.arg?.audience || state.advertisements.audience;
-        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
-        if (!state.advertisements[key].loading) {
-          state.advertisements[key].loading = true;
-          state.advertisements[key].error = null;
-        }
-      })
-      .addCase(fetchAdvertisements.fulfilled, (state, action) => {
-        const { audience, items, cached } = action.payload;
-        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
-        state.advertisements[key].loading = false;
-        if (!cached) {
-          state.advertisements[key].items = items;
-          state.advertisements[key].fetched = true;
-        }
-      })
-      .addCase(fetchAdvertisements.rejected, (state, action) => {
-        const audience = action.payload?.audience || 'PATIENT';
-        const key = audience === 'DOCTOR' ? 'doctor' : 'patient';
-        state.advertisements[key].loading = false;
-        state.advertisements[key].error = action.payload?.message || 'Failed to load ads';
-      })
-      // Ad mutations
-      .addCase(createAdvertisement.pending, (state) => {
-        state.advertisements.saving = true;
-      })
-      .addCase(createAdvertisement.fulfilled, (state, action) => {
-        state.advertisements.saving = false;
-        const aud = action.payload.audience || action.meta?.arg?.data?.audience;
-        const key = aud === 'DOCTOR' ? 'doctor' : 'patient';
-        state.advertisements[key].fetched = false;
-      })
-      .addCase(createAdvertisement.rejected, (state) => {
-        state.advertisements.saving = false;
-      })
-      .addCase(updateAdvertisement.pending, (state) => {
-        state.advertisements.saving = true;
-      })
-      .addCase(updateAdvertisement.fulfilled, (state, action) => {
-        state.advertisements.saving = false;
-        const aud = action.payload.audience;
-        const key = aud === 'DOCTOR' ? 'doctor' : 'patient';
-        state.advertisements[key].fetched = false;
-      })
-      .addCase(updateAdvertisement.rejected, (state) => {
-        state.advertisements.saving = false;
-      })
-      .addCase(deleteAdvertisement.pending, (state) => {
-        state.advertisements.saving = true;
-      })
-      .addCase(deleteAdvertisement.fulfilled, (state, action) => {
-        state.advertisements.saving = false;
-        ['patient', 'doctor'].forEach((key) => {
-          state.advertisements[key].items = state.advertisements[key].items.filter(
-            (ad) => ad.advertisementId !== action.payload
-          );
-          state.advertisements[key].fetched = false;
-        });
-      })
-      .addCase(deleteAdvertisement.rejected, (state) => {
-        state.advertisements.saving = false;
       });
   },
 });
 
 export const {
+  setTipAudience,
+  setAdAudience,
   setArticleFilters,
   setArticlePage,
-  setAdAudience,
   invalidateArticles,
+  invalidateTips,
   invalidateAds,
   clearContentErrors,
 } = contentSlice.actions;

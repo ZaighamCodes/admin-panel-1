@@ -1,89 +1,80 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import * as patientsApi from '@/services/patientsApi';
 
-// Dummy data
-const dummyPatients = [
-  {
-    id: '1',
-    serialNo: 1,
-    name: 'John Doe',
-    mobile: '+1 234-567-8901',
-    email: 'john.doe@example.com',
-    gender: 'Male',
-    dob: '1990-05-15',
-    documents: ['id-proof.pdf', 'medical-history.pdf'],
-    totalAttendedCalls: 12,
-    createdAt: '2024-01-10T08:00:00Z',
-  },
-  {
-    id: '2',
-    serialNo: 2,
-    name: 'Jane Smith',
-    mobile: '+1 234-567-8902',
-    email: 'jane.smith@example.com',
-    gender: 'Female',
-    dob: '1985-08-22',
-    documents: ['id-proof.pdf'],
-    totalAttendedCalls: 8,
-    createdAt: '2024-01-12T10:30:00Z',
-  },
-  {
-    id: '3',
-    serialNo: 3,
-    name: 'Robert Brown',
-    mobile: '+1 234-567-8903',
-    email: 'robert.brown@example.com',
-    gender: 'Male',
-    dob: '1992-11-30',
-    documents: ['id-proof.pdf', 'medical-history.pdf', 'insurance.pdf'],
-    totalAttendedCalls: 15,
-    createdAt: '2024-01-14T14:20:00Z',
-  },
-  {
-    id: '4',
-    serialNo: 4,
-    name: 'Maria Garcia',
-    mobile: '+1 234-567-8904',
-    email: 'maria.garcia@example.com',
-    gender: 'Female',
-    dob: '1988-03-18',
-    documents: ['id-proof.pdf'],
-    totalAttendedCalls: 5,
-    createdAt: '2024-01-16T09:15:00Z',
-  },
-  {
-    id: '5',
-    serialNo: 5,
-    name: 'David Lee',
-    mobile: '+1 234-567-8905',
-    email: 'david.lee@example.com',
-    gender: 'Male',
-    dob: '1995-07-25',
-    documents: ['id-proof.pdf', 'medical-history.pdf'],
-    totalAttendedCalls: 20,
-    createdAt: '2024-01-18T11:45:00Z',
-  },
-];
-
-const initialState = {
-  patients: dummyPatients,
-  loading: false,
-  error: null,
+const extractError = (error) => {
+  if (error?.status === 403) return 'Admin access required';
+  if (error?.status === 404) return 'Patient not found';
+  if (error?.status === 503) {
+    return error?.message || 'Patient records are temporarily unavailable';
+  }
+  return error?.message || error?.data?.message || 'Something went wrong';
 };
 
-// Placeholder async thunks for future API integration
-export const fetchPatients = createAsyncThunk(
-  'patients/fetchAll',
-  async () => {
-    // TODO: Replace with actual API call
-    return dummyPatients;
+const initialState = {
+  items: [],
+  page: 0,
+  size: 20,
+  totalElements: 0,
+  totalPages: 0,
+  q: '',
+  loading: false,
+  error: null,
+  overview: {
+    byPatientId: {},
+    loading: false,
+    error: null,
+    currentId: null,
+  },
+};
+
+export const fetchAdminPatients = createAsyncThunk(
+  'patients/fetchList',
+  async ({ page = 0, size = 20, q = '' } = {}, { rejectWithValue }) => {
+    try {
+      const response = await patientsApi.listAdminPatients(page, size, q);
+      const data = patientsApi.unwrap(response) || {};
+      return {
+        items: Array.isArray(data.content) ? data.content : [],
+        page: data.page ?? page,
+        size: data.size ?? size,
+        totalElements: data.totalElements ?? 0,
+        totalPages: data.totalPages ?? 0,
+        q,
+      };
+    } catch (error) {
+      return rejectWithValue(extractError(error));
+    }
   }
 );
 
-export const updatePatient = createAsyncThunk(
-  'patients/update',
-  async (patient) => {
-    // TODO: Replace with actual API call
-    return patient;
+export const fetchPatientOverview = createAsyncThunk(
+  'patients/fetchOverview',
+  async ({ patientId, force = false } = {}, { getState, rejectWithValue }) => {
+    const id = String(patientId || '').trim();
+    if (!id) return rejectWithValue('Patient ID is required');
+
+    const cached = getState().patients.overview.byPatientId[id];
+    if (cached && !force) {
+      return { patientId: id, overview: cached, fromCache: true };
+    }
+
+    try {
+      const response = await patientsApi.getAdminPatientOverview(id);
+      const data = patientsApi.unwrap(response) || {};
+      return {
+        patientId: id,
+        fromCache: false,
+        overview: {
+          patient: data.patient || null,
+          documents: Array.isArray(data.documents) ? data.documents : [],
+          prescriptions: Array.isArray(data.prescriptions) ? data.prescriptions : [],
+          documentCount: data.documentCount ?? (data.documents?.length || 0),
+          prescriptionCount: data.prescriptionCount ?? (data.prescriptions?.length || 0),
+        },
+      };
+    } catch (error) {
+      return rejectWithValue(extractError(error));
+    }
   }
 );
 
@@ -91,35 +82,56 @@ const patientsSlice = createSlice({
   name: 'patients',
   initialState,
   reducers: {
-    updatePatientLocal: (state, action) => {
-      const index = state.patients.findIndex(p => p.id === action.payload.id);
-      if (index !== -1) {
-        state.patients[index] = action.payload;
-      }
+    setPatientSearch: (state, action) => {
+      state.q = action.payload;
+      state.page = 0;
+    },
+    setPatientPage: (state, action) => {
+      state.page = action.payload;
+    },
+    clearPatientOverviewError: (state) => {
+      state.overview.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchPatients.pending, (state) => {
+      .addCase(fetchAdminPatients.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
-      .addCase(fetchPatients.fulfilled, (state, action) => {
+      .addCase(fetchAdminPatients.fulfilled, (state, action) => {
         state.loading = false;
-        state.patients = action.payload;
+        state.items = action.payload.items;
+        state.page = action.payload.page;
+        state.size = action.payload.size;
+        state.totalElements = action.payload.totalElements;
+        state.totalPages = action.payload.totalPages;
+        state.q = action.payload.q;
       })
-      .addCase(fetchPatients.rejected, (state, action) => {
+      .addCase(fetchAdminPatients.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch patients';
+        state.error = action.payload;
       })
-      .addCase(updatePatient.fulfilled, (state, action) => {
-        const index = state.patients.findIndex(p => p.id === action.payload.id);
-        if (index !== -1) {
-          state.patients[index] = action.payload;
+      .addCase(fetchPatientOverview.pending, (state, action) => {
+        state.overview.loading = true;
+        state.overview.error = null;
+        state.overview.currentId = action.meta.arg?.patientId || null;
+      })
+      .addCase(fetchPatientOverview.fulfilled, (state, action) => {
+        state.overview.loading = false;
+        state.overview.currentId = action.payload.patientId;
+        if (!action.payload.fromCache) {
+          state.overview.byPatientId[action.payload.patientId] = action.payload.overview;
         }
+      })
+      .addCase(fetchPatientOverview.rejected, (state, action) => {
+        state.overview.loading = false;
+        state.overview.error = action.payload;
       });
   },
 });
 
-export const { updatePatientLocal } = patientsSlice.actions;
-export default patientsSlice.reducer;
+export const { setPatientSearch, setPatientPage, clearPatientOverviewError } =
+  patientsSlice.actions;
 
+export default patientsSlice.reducer;

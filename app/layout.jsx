@@ -5,10 +5,10 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'HeyDoctor Admin Panel',
-  description: 'Admin dashboard for HeyDoctor platform',
+  title: 'Docspot Admin Panel',
+  description: 'Admin dashboard for Docspot platform',
   icons: {
-    icon: '/icon.svg',
+    icon: '/assets/appicon.png',
   },
 };
 

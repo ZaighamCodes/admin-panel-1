@@ -43,6 +43,16 @@ api.interceptors.response.use(
       }
     }
 
+    if (error.response?.status === 403) {
+      const errorMessage =
+        error.response?.data?.message || 'Admin access required';
+      return Promise.reject({
+        message: errorMessage,
+        status: 403,
+        data: error.response?.data,
+      });
+    }
+
     // Return error in consistent format
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
     return Promise.reject({

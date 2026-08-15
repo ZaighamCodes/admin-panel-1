@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { login } from '@/store/slices/authSlice';
-import { Stethoscope, Lock, Mail, AlertCircle } from 'lucide-react';
+import { Lock, Mail, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -37,11 +37,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-primary-500 to-purple-500 rounded-2xl soft-shadow-lg mb-4">
-            <Stethoscope className="w-10 h-10 text-white" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <img
+              src="/assets/appicon.png"
+              alt="Docspot"
+              className="w-20 h-20 rounded-2xl soft-shadow-lg object-cover ring-1 ring-white/60"
+            />
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            HeyDoctor
+            Docspot
           </h1>
           <p className="text-gray-600">Admin Panel Login</p>
         </div>
@@ -114,7 +118,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-500 mt-6">
-          © 2024 HeyDoctor. All rights reserved.
+          © {new Date().getFullYear()} Docspot. All rights reserved.
         </p>
       </div>
     </div>

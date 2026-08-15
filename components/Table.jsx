@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-export default function Table({ columns, data, className = '' }) {
+export default function Table({ columns, data, className = '', onRowClick }) {
   return (
     <div className={`bg-white rounded-xl border border-gray-200 overflow-hidden ${className}`}>
       <div className="overflow-x-auto">
@@ -31,8 +31,25 @@ export default function Table({ columns, data, className = '' }) {
             ) : (
               data.map((row, rowIndex) => {
                 if (!row) return null;
+                const clickable = typeof onRowClick === 'function';
                 return (
-                  <tr key={row.id || row.tipId || row.advertisementId || row.doctorId || row.departmentId || row.qualificationId || rowIndex} className="hover:bg-primary-50/50 transition-colors">
+                  <tr
+                    key={
+                      row.patientId ||
+                      row.id ||
+                      row.tipId ||
+                      row.articleId ||
+                      row.advertisementId ||
+                      row.doctorId ||
+                      row.departmentId ||
+                      row.qualificationId ||
+                      rowIndex
+                    }
+                    className={`hover:bg-primary-50/50 transition-colors ${
+                      clickable ? 'cursor-pointer' : ''
+                    }`}
+                    onClick={clickable ? () => onRowClick(row, rowIndex) : undefined}
+                  >
                     {columns.map((column, index) => {
                       try {
                         return (
@@ -65,4 +82,3 @@ export default function Table({ columns, data, className = '' }) {
     </div>
   );
 }
-

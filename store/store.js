@@ -11,6 +11,9 @@ import doctorVerificationReducer from './slices/doctorVerificationSlice';
 import verifiedDoctorsReducer from './slices/verifiedDoctorsSlice';
 import rejectedApplicationsReducer from './slices/rejectedApplicationsSlice';
 import contentReducer from './slices/contentSlice';
+import payoutsReducer from './slices/payoutsSlice';
+import adminDoctorsReducer from './slices/adminDoctorsSlice';
+import dashboardReducer from './slices/dashboardSlice';
 
 export const store = configureStore({
   reducer: {
@@ -26,6 +29,9 @@ export const store = configureStore({
     verifiedDoctors: verifiedDoctorsReducer,
     rejectedApplications: rejectedApplicationsReducer,
     content: contentReducer,
+    payouts: payoutsReducer,
+    adminDoctors: adminDoctorsReducer,
+    dashboard: dashboardReducer,
   },
 });
 

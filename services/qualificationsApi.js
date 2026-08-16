@@ -16,9 +16,8 @@ export const getAllQualifications = async () => {
   return response;
 };
 
-/**
- * Create new qualification (ADMIN only)
- */
+
+
 export const createQualification = async (qualificationData) => {
   const response = await api.post('/doctor/qualifications', qualificationData);
   return response;

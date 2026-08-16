@@ -17,7 +17,6 @@ export const getAllQualifications = async () => {
 };
 
 
-
 export const createQualification = async (qualificationData) => {
   const response = await api.post('/doctor/qualifications', qualificationData);
   return response;
